@@ -38,9 +38,13 @@ desc "Stage and rsync to the server (or its cache)."
 task :rsync => %w[rsync:stage] do
   roles(:all).each do |role|
     user = role.user + "@" if !role.user.nil?
+    ssh_options = fetch(:ssh_options, {})
 
     rsync = %w[rsync]
     rsync.concat fetch(:rsync_options)
+    if ssh_options[:proxy]
+      rsync << "-e" << "ssh -o ProxyCommand='#{ssh_options[:proxy].command_line_template}'"
+    end
     rsync << fetch(:rsync_stage) + "/"
     rsync << "#{user}#{role.hostname}:#{rsync_cache.call || release_path}"
 
@@ -51,11 +55,11 @@ end
 namespace :rsync do
   task :hook_scm do
     Rake::Task.define_task("#{scm}:check") do
-      invoke "rsync:check" 
+      invoke "rsync:check"
     end
 
     Rake::Task.define_task("#{scm}:create_release") do
-      invoke "rsync:release" 
+      invoke "rsync:release"
     end
   end
 
