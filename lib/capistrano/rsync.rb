@@ -39,12 +39,18 @@ task :rsync => %w[rsync:stage] do
   roles(:all).each do |role|
     user = role.user + "@" if !role.user.nil?
     ssh_options = fetch(:ssh_options, {})
+    ssh_cmd_options = {}
+    if ssh_options[:proxy]
+      ssh_cmd_options['ProxyCommand'] = ssh_options[:proxy].command_line_template
+    end
+    if ssh_options[:paranoid] == false
+      ssh_cmd_options['StrictHostKeyChecking'] = 'no'
+    end
+    ssh_cmd = ['ssh', *ssh_cmd_options.map { |k, v| "-o #{k}='#{v}'" }].join(' ')
 
     rsync = %w[rsync]
     rsync.concat fetch(:rsync_options)
-    if ssh_options[:proxy]
-      rsync << "-e" << "ssh -o ProxyCommand='#{ssh_options[:proxy].command_line_template}'"
-    end
+    rsync << "-e" << ssh_cmd
     rsync << fetch(:rsync_stage) + "/"
     rsync << "#{user}#{role.hostname}:#{rsync_cache.call || release_path}"
 
